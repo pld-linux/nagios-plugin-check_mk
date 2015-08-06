@@ -1,18 +1,22 @@
+# NOTE:
+# - mk-livestatus is built from mk-livestatus package
 %define		plugin	check_mk
 Summary:	General purpose Nagios plugin for retrieving data
 Name:		nagios-plugin-%{plugin}
-Version:	1.0.35
+Version:	1.2.6p9
 Release:	0.1
 License:	GPL v2
 Group:		Networking
-Source0:	http://mathias-kettner.de/download/%{plugin}-%{version}.tar.gz
-# Source0-md5:	022553ad48cd3da649c90f9352cdc80c
-URL:		http://mathias-kettner.de/check_mk
+# Source0Download: https://mathias-kettner.de/check_mk_download_source.html
+Source0:	https://mathias-kettner.de/download/check_mk-%{version}.tar.gz
+# Source0-md5:	5c151625619ad39681f89d11dab819a6
+URL:		http://mathias-kettner.com/check_mk.html
+Requires:	mk-livestatus >= 1.2.6p9
 Requires:	nagios-common
 BuildArch:	noarch
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
-%define		_sysconfdir		/etc/nagios/plugins
+%define		_sysconfdir		/etc/nagios
 %define		plugindir		%{_prefix}/lib/nagios/plugins
 
 %define		_appdir			%{_datadir}/%{plugin}
@@ -37,34 +41,60 @@ environment exceeding 20.000 checks/min on the first hand.
 
 %prep
 %setup -q -n %{plugin}-%{version}
-for a in *.tar.gz; do
-	d=${a%.tar.gz}
-	install -d $d
-	tar -xf $a -C $d
-	rm -f $a
-done
-mv conf/main.mk{-%{version},}
-
-%build
-%{__cc} %{rpmcflags} -Wall agents/waitmax.c -o agents/waitmax
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{%{_sysconfdir},%{_sbindir},%{pluginconfdir},%{plugindir},%{_mandir}/man1}
-cp -a agents/check_mk_agent.linux $RPM_BUILD_ROOT%{_sbindir}/check_mk_agent
-install -p modules/check_mk.py $RPM_BUILD_ROOT%{plugindir}/%{plugin}
-cp -a doc/check_mk.1 $RPM_BUILD_ROOT%{_mandir}/man1
+install -d $RPM_BUILD_ROOT%{_sysconfdir}
+
+DESTDIR=$RPM_BUILD_ROOT \
+	enable_livestatus=no \
+	nagios_config_file=%{_sysconfdir}/nagios.cfg \
+	nagconfdir=%{_sysconfdir}/plugins.d \
+	docdir=%{_docdir}/check-mk \
+	checkmandir=%{_docdir}/check-mk/checkman \
+	htdocsdir=%{_datadir}/nagios/htdocs \
+	pnptemplates=%{_datadir}/nagios/htdocs/pnp/templates \
+	nagpipe=/var/lib/nagios/rw/nagios.cmd \
+	check_result_path=/var/spool/nagios/checkresults \
+	nagiosurl=/nagios \
+	cgiurl=/cgi-bin/nagios \
+	check_icmp_path=%{_prefix}/lib/nagios/plugins/check_icmp \
+	wwwuser=http \
+	www_group=http \
+	apache_config_dir=/etc/httpd/webapps.d \
+	htpasswd_file=/etc/webapps/nagios/passwd \
+	nagios_auth_name="Nagios" \
+	nagios_binary=%{_sbindir}/nagios \
+	nagios_startscript=/etc/rc.d/init.d/nagios \
+./setup.sh --yes
+
+%{__rm} $RPM_BUILD_ROOT/etc/check_mk/*.mk-%{version}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(644,root,root,755)
-%doc AUTHORS ChangeLog INSTALL
-%config(noreplace) %attr(640,root,nagios) %verify(not md5 mtime size) %{_sysconfdir}/%{plugin}.cfg
-%attr(755,root,root) %{plugindir}/%{plugin}
-%{_mandir}/man1/*.1*
+%doc AUTHORS ChangeLog
+/etc/httpd/webapps.d/zzz_check_mk.conf
+%dir /etc/check_mk
+%dir /etc/check_mk/conf.d
+/etc/check_mk/conf.d/README
+/etc/check_mk/main.mk
+/etc/check_mk/multisite.mk
+%{_sysconfdir}/plugins.d/check_mk_templates.cfg
+%attr(755,root,root) %{_bindir}/check_mk
+%attr(755,root,root) %{_bindir}/cmk
+%attr(755,root,root) %{_bindir}/mkp
+%dir %{_datadir}/check_mk
+%{_datadir}/check_mk/check_mk_templates.cfg
+%{_datadir}/check_mk/agents
+%{_datadir}/check_mk/checks
+%{_datadir}/check_mk/inventory
+%{_datadir}/check_mk/modules
+%{_datadir}/check_mk/notifications
+%{_datadir}/check_mk/web
+%{_docdir}/check-mk
+%{_datadir}/nagios/htdocs/pnp
+/var/lib/check_mk/packages/check_mk
 
-%dir %attr(750,root,nagios) %{confdir}
-%{confdir}/README
-%config(noreplace) %attr(640,root,nagios) %verify(not md5 mtime size) %{confdir}/*.mk
