@@ -4,7 +4,7 @@
 Summary:	General purpose Nagios plugin for retrieving data
 Name:		nagios-plugin-%{plugin}
 Version:	1.2.6p9
-Release:	0.1
+Release:	0.2
 License:	GPL v2
 Group:		Networking
 # Source0Download: https://mathias-kettner.de/check_mk_download_source.html
@@ -49,7 +49,7 @@ install -d $RPM_BUILD_ROOT%{_sysconfdir}
 DESTDIR=$RPM_BUILD_ROOT \
 	enable_livestatus=no \
 	nagios_config_file=%{_sysconfdir}/nagios.cfg \
-	nagconfdir=%{_sysconfdir}/plugins.d \
+	nagconfdir=%{_sysconfdir}/plugins \
 	docdir=%{_docdir}/check-mk \
 	checkmandir=%{_docdir}/check-mk/checkman \
 	htdocsdir=%{_datadir}/nagios/htdocs \
@@ -70,6 +70,16 @@ DESTDIR=$RPM_BUILD_ROOT \
 
 %{__rm} $RPM_BUILD_ROOT/etc/check_mk/*.mk-%{version}
 
+# avoid generating weird interpreter dependencies
+%{__sed} -i -e '
+	s#/usr/bin/bash#/bin/bash#
+	s#/usr/bin/ksh93#/bin/ksh#g
+	s#/usr/bin/ksh#/bin/ksh#g
+	s#/usr/local/bin/bash#/bin/bash#g
+' \
+$RPM_BUILD_ROOT%{_datadir}/check_mk/agents/check_* \
+$RPM_BUILD_ROOT%{_datadir}/check_mk/agents/plugins/*
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -82,7 +92,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/check_mk/conf.d/README
 /etc/check_mk/main.mk
 /etc/check_mk/multisite.mk
-%{_sysconfdir}/plugins.d/check_mk_templates.cfg
+%{_sysconfdir}/plugins/check_mk_templates.cfg
 %attr(755,root,root) %{_bindir}/check_mk
 %attr(755,root,root) %{_bindir}/cmk
 %attr(755,root,root) %{_bindir}/mkp
@@ -96,5 +106,5 @@ rm -rf $RPM_BUILD_ROOT
 %{_datadir}/check_mk/web
 %{_docdir}/check-mk
 %{_datadir}/nagios/htdocs/pnp
+%dir /var/lib/check_mk/packages
 /var/lib/check_mk/packages/check_mk
-
